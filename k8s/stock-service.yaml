@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: stock-service
+  name: stock-service
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: stock-service
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        io.kompose.network/wdm-project-template-default: "true"
+        app: stock-service
+    spec:
+      containers:
+        - args:
+            - java
+            - -jar
+            - /app.jar
+          image: boomm61/wdm-stock:latest
+          imagePullPolicy: Always
+          name: stock-service
+          ports:
+            - containerPort: 5002
+          resources: {}
+          env:
+            - name: DATABASE_URL
+              value: "jdbc:postgresql://stock-db.default.svc.cluster.local:5434/wdmstock"
+            - name: DATABASE_USERNAME
+              value: "postgres"
+            - name: DATABASE_PASS
+              value: "ABC"
+      restartPolicy: Always
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: stock-service
+  name: stock-service
+spec:
+  ports:
+    - name: "5002"
+      port: 5002
+      targetPort: 5002
+  selector:
+    app: stock-service
+status:
+  loadBalancer: {}

@@ -1,6 +1,5 @@
 version: "3"
 services:
-
   gateway:
     image: nginx:latest
     volumes:
@@ -10,35 +9,79 @@ services:
 
   order-service:
     build: ./order
-    image: order:latest
+    depends_on:
+      - order-db
+    ports:
+      - "5000:5000"
+    command: java -jar /app.jar
     environment:
       - GATEWAY_URL=http://gateway:80
-    command: gunicorn -b 0.0.0.0:5000 app:app -w 1 --timeout 10
-    env_file:
-      - env/order_redis.env
+      - PAYMENT_SERVICE_URL=http://payment-service:5001
+      - STOCK_SERVICE_URL=http://stock-service:5002
+      - DATABASE_URL=jdbc:postgresql://order-db:5432/wdmorder
+      - DATABASE_USERNAME=postgres
+      - DATABASE_PASS=123
 
   order-db:
-    image: redis:latest
-    command: redis-server --requirepass redis --maxmemory 512mb
-
-  stock-service:
-    build: ./stock
-    image: stock:latest
-    command: gunicorn -b 0.0.0.0:5000 app:app -w 1 --timeout 10
-    env_file:
-      - env/stock_redis.env
-
-  stock-db:
-    image: redis:latest
-    command: redis-server --requirepass redis --maxmemory 512mb
+    image: postgres:latest
+    container_name: order-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=123
+      - POSTGRES_DB=wdmorder
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+    ports:
+      - "5432:5432"
+    volumes:
+      - /var/lib/postgresql/data
 
   payment-service:
     build: ./payment
-    image: user:latest
-    command: gunicorn -b 0.0.0.0:5000 app:app -w 1 --timeout 10
-    env_file:
-      - env/payment_redis.env
+    depends_on:
+      - payment-db
+    command: java -jar /app.jar
+    ports:
+      - "5001:5001"
+    environment:
+      - GATEWAY_URL=http://gateway:80
+      - DATABASE_URL=jdbc:postgresql://payment-db:5432/wdmpayment
+      - DATABASE_USERNAME=postgres
+      - DATABASE_PASS=123
 
   payment-db:
-    image: redis:latest
-    command: redis-server --requirepass redis --maxmemory 512mb
+    image: postgres:latest
+    container_name: payment-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=123
+      - POSTGRES_DB=wdmpayment
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+    ports:
+      - "5433:5432"
+    volumes:
+      - /var/lib/postgresql/data
+
+  stock-service:
+    build: ./stock
+    depends_on:
+      - stock-db
+    command: java -jar /app.jar
+    ports:
+      - "5002:5002"
+    environment:
+      - DATABASE_URL=jdbc:postgresql://stock-db:5432/wdmstock
+      - DATABASE_USERNAME=postgres
+      - DATABASE_PASS=123
+
+  stock-db:
+    image: postgres:latest
+    container_name: stock-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=123
+      - POSTGRES_DB=wdmstock
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+    ports:
+      - "5434:5432"
+    volumes:
+      - /var/lib/postgresql/data
